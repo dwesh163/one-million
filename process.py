@@ -6,25 +6,34 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 
-def process_item(item, url_template):
-    try:
-        url = url_template.replace("_id_", str(item['id']))
+def process_batch(batch, url_template, collection):
+    processed_batch = []
+    batch_log = []
 
-        response = requests.get(url)
-        data = response.json()
+    for item in batch:
+        try:
+            url = url_template.replace("_id_", str(item['id']))
+            response = requests.get(url)
 
-        client = pymongo.MongoClient(os.environ['MONGODB_URI'])
-        db = client['mydatabase']
-        collection = db['mycollection']
-        collection.insert_one(data)
+            if response.status_code == 404:
+                with open('/logs/404_errors.txt', 'a') as error_log:
+                    error_log.write(f"{item['id']},{datetime.now().isoformat()},404\n")
+                continue
 
-        with open('/logs/processed_ids.txt', 'a') as log_file:
-            log_file.write(f"{item['id']},{datetime.now().isoformat()}\n")
+            response.raise_for_status()
 
-        return True
-    except Exception as e:
-        print(f"Error processing {item}: {e}")
-        return False
+            data = response.json()
+            processed_batch.append(data)
+            batch_log.append((item['id'], datetime.now().isoformat()))
+
+        except requests.RequestException as e:
+            with open('/logs/request_errors.txt', 'a') as error_log:
+                error_log.write(f"{item['id']},{datetime.now().isoformat()},{str(e)}\n")
+
+    if processed_batch:
+        collection.insert_many(processed_batch)
+
+    return batch_log
 
 
 def main():
@@ -33,11 +42,21 @@ def main():
     with open('/data/list.json', 'r') as f:
         items = json.load(f)
 
-    with ThreadPoolExecutor(max_workers=os.cpu_count() * 2) as executor:
-        futures = [executor.submit(process_item, item, url_template) for item in items]
+    client = pymongo.MongoClient(os.environ['MONGODB_URI'])
+    db = client['mydatabase']
+    collection = db['mycollection']
 
-        for future in as_completed(futures):
-            future.result()
+    with ThreadPoolExecutor(max_workers=os.cpu_count() * 2) as executor:
+        batch_size = 1000
+        for i in range(0, len(items), batch_size):
+            batch = items[i:i+batch_size]
+            future = executor.submit(process_batch, batch, url_template, collection)
+
+            batch_logs = future.result()
+            if batch_logs:
+                with open('/logs/processed_ids.txt', 'a') as log_file:
+                    for item_id, timestamp in batch_logs:
+                        log_file.write(f"{item_id},{timestamp}\n")
 
 
 if __name__ == '__main__':
