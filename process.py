@@ -12,23 +12,23 @@ def process_batch(batch, url_template, collection):
 
     for item in batch:
         try:
-            url = url_template.replace("_id_", str(item['id']))
+            url = url_template.replace("_id_", str(item))
             response = requests.get(url)
 
             if response.status_code == 404:
                 with open('/logs/404_errors.txt', 'a') as error_log:
-                    error_log.write(f"{item['id']},{datetime.now().isoformat()},404\n")
+                    error_log.write(f"{item},{datetime.now().isoformat()},404\n")
                 continue
 
             response.raise_for_status()
 
             data = response.json()
             processed_batch.append(data)
-            batch_log.append((item['id'], datetime.now().isoformat()))
+            batch_log.append((item, datetime.now().isoformat()))
 
         except requests.RequestException as e:
             with open('/logs/request_errors.txt', 'a') as error_log:
-                error_log.write(f"{item['id']},{datetime.now().isoformat()},{str(e)}\n")
+                error_log.write(f"{item},{datetime.now().isoformat()},{str(e)}\n")
 
     if processed_batch:
         collection.insert_many(processed_batch)
@@ -43,8 +43,8 @@ def main():
         items = json.load(f)
 
     client = pymongo.MongoClient(os.environ['MONGODB_URI'])
-    db = client['mydatabase']
-    collection = db['mycollection']
+    db = client['one-million']
+    collection = db['products']
 
     with ThreadPoolExecutor(max_workers=os.cpu_count() * 2) as executor:
         batch_size = 1000
