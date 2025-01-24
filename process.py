@@ -2,7 +2,7 @@ import json
 import os
 import requests
 import pymongo
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 
