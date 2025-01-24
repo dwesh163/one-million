@@ -29,14 +29,6 @@ for i in $(seq 0 $((SPLIT_COUNT-1))); do
         continue
     fi
 
-    echo run -d \
-        -v "$(realpath "$SPLIT_FILE"):/data/list.json" \
-        -v "$(realpath "$LOGS_DIR"):/logs" \
-        -e MONGODB_URI="$MONGODB_URI" \
-        -e URL_TEMPLATE="$URL_TEMPLATE" \
-        --name "processor-$i" \
-        "$DOCKER_IMAGE"
-
     docker run -d \
         -v "$(realpath "$SPLIT_FILE"):/data/list.json" \
         -v "$(realpath "$LOGS_DIR"):/logs" \
