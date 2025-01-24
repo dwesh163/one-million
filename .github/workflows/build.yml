@@ -55,7 +55,7 @@ jobs:
             - name: Build and push Docker image
               uses: docker/build-push-action@v5
               with:
-                  context: ./script/Dockerfile
+                  context: .
                   push: true
                   tags: ${{ github.repository }}:latest,${{ github.repository }}:${{ needs.get-version.outputs.version }}
                   labels: ${{ steps.meta.outputs.labels }}
